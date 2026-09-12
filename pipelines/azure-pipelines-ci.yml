@@ -1,0 +1,85 @@
+# Azure DevOps Pipeline: Microservices CI & DevSecOps Scanning
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - app/*
+      - k8s/helm/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - name: azureContainerRegistry
+    value: 'cloudopsacrdev001.azurecr.io'
+  - name: acrServiceConnection
+    value: 'acr-service-connection'
+  - name: imageTag
+    value: '$(Build.BuildId)'
+
+stages:
+  - stage: BuildAndSecurityScan
+    displayName: 'Build & Security Auditing'
+    jobs:
+      - job: BuildMicroservices
+        displayName: 'Build Docker Images & Trivy Vulnerability Scan'
+        strategy:
+          matrix:
+            Frontend:
+              serviceName: 'frontend-service'
+              dockerfilePath: 'app/frontend/Dockerfile'
+              contextPath: 'app/frontend'
+            OrderService:
+              serviceName: 'order-service'
+              dockerfilePath: 'app/order-service/Dockerfile'
+              contextPath: 'app/order-service'
+            PaymentService:
+              serviceName: 'payment-service'
+              dockerfilePath: 'app/payment-service/Dockerfile'
+              contextPath: 'app/payment-service'
+
+        steps:
+          - task: Docker@2
+            displayName: 'Build Docker Image'
+            inputs:
+              command: 'build'
+              repository: '$(serviceName)'
+              dockerfile: '$(dockerfilePath)'
+              buildContext: '$(contextPath)'
+              tags: |
+                $(imageTag)
+                latest
+
+          - script: |
+              echo "Installing Trivy Security Scanner..."
+              curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+              trivy image --severity HIGH,CRITICAL $(serviceName):$(imageTag)
+            displayName: 'Trivy Container Image Vulnerability Audit'
+
+          - task: Docker@2
+            displayName: 'Push Image to Azure Container Registry (ACR)'
+            inputs:
+              containerRegistry: '$(acrServiceConnection)'
+              repository: '$(serviceName)'
+              command: 'push'
+              tags: |
+                $(imageTag)
+                latest
+
+  - stage: PackageHelmChart
+    displayName: 'Package & Publish Helm Chart'
+    dependsOn: BuildAndSecurityScan
+    jobs:
+      - job: PackageHelm
+        steps:
+          - script: |
+              helm package k8s/helm/microservices-chart --version 0.1.$(Build.BuildId) --destination $(Build.ArtifactStagingDirectory)
+            displayName: 'Package Helm Chart'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'helm-chart'
+              publishLocation: 'Container'

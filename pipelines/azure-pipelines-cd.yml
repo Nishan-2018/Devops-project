@@ -1,0 +1,53 @@
+# Azure DevOps Pipeline: CD & GitOps Trigger
+trigger: none # Triggered via CI completion pipeline resource
+
+resources:
+  pipelines:
+    - pipeline: ci-pipeline
+      source: 'Microservices-CI'
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - name: aksServiceConnection
+    value: 'aks-service-connection'
+  - name: resourceGroup
+    value: 'cloudops-rg-dev'
+  - name: aksClusterName
+    value: 'cloudops-aks-dev'
+
+stages:
+  - stage: GitOpsDeploy
+    displayName: 'GitOps Sync & Helm Release'
+    jobs:
+      - deployment: DeployToAKS
+        environment: 'staging-aks'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Get AKS Credentials'
+                  inputs:
+                    azureSubscription: '$(aksServiceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az aks get-credentials --resource-group $(resourceGroup) --name $(aksClusterName) --overwrite-existing
+                      kubectl get nodes
+                      kubectl get pods -n default
+
+                - script: |
+                    echo "Updating Helm chart values with new build tag $(resources.pipeline.ci-pipeline.runID)..."
+                    # Helm upgrade/install command as fallback or primary CD
+                    helm upgrade --install microservices-platform k8s/helm/microservices-chart \
+                      --namespace default \
+                      --set frontend.image.tag=$(resources.pipeline.ci-pipeline.runID) \
+                      --set orderService.image.tag=$(resources.pipeline.ci-pipeline.runID) \
+                      --set paymentService.image.tag=$(resources.pipeline.ci-pipeline.runID)
+                  displayName: 'Helm Upgrade Release on AKS'

@@ -1,0 +1,10 @@
+prefix      = "cloudops"
+environment = "dev"
+location    = "eastus2"
+
+tags = {
+  Project     = "AzureDevOpsEnterprisePlatform"
+  ManagedBy   = "Terraform"
+  Environment = "dev"
+  Owner       = "DevOpsTeam"
+}

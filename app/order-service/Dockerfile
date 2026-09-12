@@ -1,0 +1,16 @@
+# Build Stage
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod ./
+COPY main.go ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o order-service main.go
+
+# Minimal Distroless Security Image
+FROM gcr.io/distroless/static-debian12:nonroot
+WORKDIR /
+COPY --from=builder /app/order-service /order-service
+
+USER nonroot:nonroot
+EXPOSE 8080
+
+ENTRYPOINT ["/order-service"]

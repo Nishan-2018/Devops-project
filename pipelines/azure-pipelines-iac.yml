@@ -1,0 +1,90 @@
+# Azure DevOps Pipeline: Infrastructure as Code (Terraform)
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - name: azureServiceConnection
+    value: 'azure-spn-service-connection'
+  - name: terraformVersion
+    value: '1.7.5'
+  - name: tfWorkingDir
+    value: '$(System.DefaultWorkingDirectory)/terraform'
+
+stages:
+  - stage: ValidateAndCostEstimate
+    displayName: 'Validate & Infracost PR Check'
+    jobs:
+      - job: TerraformValidate
+        displayName: 'Terraform Lint & Cost Estimate'
+        steps:
+          - task: UseTerraform@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+
+          - script: |
+              echo "Installing TFLint..."
+              curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+              tflint --init
+              tflint --working-dir=$(tfWorkingDir)
+            displayName: 'Run TFLint Security & Syntax Analysis'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(tfWorkingDir)'
+              backendServiceArm: '$(azureServiceConnection)'
+              backendAzureRmResourceGroupName: 'tfstate-rg'
+              backendAzureRmStorageAccountName: 'cloudopstfstate001'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'devops-platform.dev.tfstate'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Plan'
+            inputs:
+              provider: 'azurerm'
+              command: 'plan'
+              workingDirectory: '$(tfWorkingDir)'
+              environmentServiceNameAzureRM: '$(azureServiceConnection)'
+              commandOptions: '-out=$(tfWorkingDir)/tfplan'
+
+          - script: |
+              echo "Running Infracost Cost Analysis..."
+              curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+              infracost breakdown --path $(tfWorkingDir)/tfplan --format table
+            displayName: 'Infracost Budget Breakdown'
+            env:
+              INFRACOST_API_KEY: $(INFRACOST_API_KEY)
+
+  - stage: TerraformApplyStage
+    displayName: 'Provision Azure Infrastructure'
+    dependsOn: ValidateAndCostEstimate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: ApplyTerraform
+        displayName: 'Terraform Apply Gate'
+        environment: 'production-infrastructure-approval'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: UseTerraform@0
+                  inputs:
+                    terraformVersion: '$(terraformVersion)'
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Apply'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'apply'
+                    workingDirectory: '$(tfWorkingDir)'
+                    environmentServiceNameAzureRM: '$(azureServiceConnection)'

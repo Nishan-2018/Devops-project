@@ -1,0 +1,66 @@
+global:
+  environment: dev
+  keyVaultName: "cloudops-kv-dev"
+  userAssignedIdentityClientID: "00000000-0000-0000-0000-000000000000"
+
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: cloudopsacrdev001.azurecr.io/frontend-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+
+orderService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: cloudopsacrdev001.azurecr.io/order-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  resources:
+    limits:
+      cpu: 250m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+paymentService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: cloudopsacrdev001.azurecr.io/payment-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
