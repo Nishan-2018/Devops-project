@@ -1,13 +1,14 @@
 global:
   environment: dev
-  keyVaultName: "cloudops-kv-dev"
-  userAssignedIdentityClientID: "00000000-0000-0000-0000-000000000000"
+  keyVaultName: "cloudops-kv-dev-v12lw1"
+  tenantId: "810c5dcc-4459-4053-aad3-67ca4b51fd45"
+  userAssignedIdentityClientID: "aac438aa-d0af-497b-a101-80bfb8206d78"
 
 frontend:
   enabled: true
   replicaCount: 2
   image:
-    repository: cloudopsacrdev001.azurecr.io/frontend-service
+    repository: cloudopsacrdevv12lw1.azurecr.io/frontend-service
     tag: latest
     pullPolicy: Always
   service:
@@ -31,7 +32,7 @@ orderService:
   enabled: true
   replicaCount: 2
   image:
-    repository: cloudopsacrdev001.azurecr.io/order-service
+    repository: cloudopsacrdevv12lw1.azurecr.io/order-service
     tag: latest
     pullPolicy: Always
   service:
@@ -50,7 +51,7 @@ paymentService:
   enabled: true
   replicaCount: 2
   image:
-    repository: cloudopsacrdev001.azurecr.io/payment-service
+    repository: cloudopsacrdevv12lw1.azurecr.io/payment-service
     tag: latest
     pullPolicy: Always
   service:

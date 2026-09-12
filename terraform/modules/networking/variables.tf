@@ -26,7 +26,7 @@ variable "vnet_cidr" {
 
 variable "aks_subnet_cidr" {
   type        = string
-  default     = "10.0.1.0/22"
+  default     = "10.0.0.0/22"
   description = "CIDR block for AKS Node Pool subnet"
 }
 

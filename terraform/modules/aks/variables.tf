@@ -30,7 +30,7 @@ variable "acr_id" {
 
 variable "kubernetes_version" {
   type        = string
-  default     = "1.29.2"
+  default     = "1.34.0"
   description = "Kubernetes Version"
 }
 

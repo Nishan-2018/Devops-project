@@ -1,0 +1,12 @@
+# Terraform local state and binaries
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+tfplan
+tfplan.json
+
+# Node modules & OS files
+node_modules/
+.DS_Store
+*.log
